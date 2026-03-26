@@ -2,131 +2,113 @@ import streamlit as st
 from groq import Groq
 import pandas as pd
 import psycopg2
-import os
 
 # ==========================================
-# 🏆 CONFIGURACIÓN DE ALTO NIVEL (UI/UX)
+# 💎 CONFIGURACIÓN PREMIUM
 # ==========================================
-st.set_page_config(
-    page_title="Vanguardia-IA News | Analista Pro",
-    page_icon="☀️",
-    layout="wide"
-)
+st.set_page_config(page_title="Vanguardia-IA News Pro", page_icon="☀️", layout="wide")
 
-# Estilo visual profesional
+# Estilos Pro
 st.markdown("""
-    <style>
-    .main { background-color: #f8f9fa; }
-    .stChatMessage { border-radius: 15px; padding: 10px; margin-bottom: 10px; }
-    </style>
-    """, unsafe_allow_html=True)
+<style>
+    .stApp { background: linear-gradient(135deg, #ffffff 0%, #f1f5f9 100%); color: #1e293b; }
+    .metric-card { background: white; padding: 20px; border-radius: 15px; box-shadow: 0 2px 10px rgba(0,0,0,0.05); text-align: center; border: 1px solid #e2e8f0; }
+    h1, h2, h3 { color: #0f172a !important; }
+</style>
+""", unsafe_allow_html=True)
 
 # ==========================================
-# 🌳 PANEL LATERAL PROFESIONAL (SIDEBAR)
+# 🔌 CONEXIÓN A BASE DE DATOS
+# ==========================================
+def conectar_db():
+    try:
+        return psycopg2.connect(st.secrets["DB_URL"])
+    except:
+        return None
+
+# ==========================================
+# 🌳 SIDEBAR (Menú de Navegación)
 # ==========================================
 with st.sidebar:
-    st.title("🌳 Panel de Control")
+    st.title("🌳 Menú Principal")
     st.markdown("---")
-    st.subheader("☀️ Vanguardia-IA News")
-    st.info("Arquitectura **RAG** (Generación Aumentada por Recuperación) conectada a Neon.")
-    
+    # OPCIONES DE NAVEGACIÓN
+    opcion = st.radio("Ir a:", ["🤖 Chat Inteligente", "📊 Dashboard Real"])
     st.markdown("---")
-    st.write("**Desarrollado por:**")
-    st.success("✨ Blanca Yesenia Hernández")
-    st.write("---")
-    st.caption("☀️ *'Datos reales, respuestas verdaderas.'* 🌳")
+    st.success("👩‍💻 Blanca Yesenia Hernández")
+    if st.button("🎉 Celebrar"): st.balloons()
+
+# ==========================================
+# 📈 SECCIÓN 1: DASHBOARD REAL
+# ==========================================
+if opcion == "📊 Dashboard Real":
+    st.title("📊 Dashboard de Noticias Neon")
+    st.markdown("### Análisis en tiempo real de tu base de datos")
     
-    if st.button("🎈 ¡Celebrar Victoria!"):
-        st.balloons()
-
-# ==========================================
-# 📰 ENCABEZADO PRINCIPAL
-# ==========================================
-st.title("☀️ Vanguardia-IA News 📰")
-st.markdown("#### *Analista Experta en Noticias Basada en Datos Reales*")
-st.write("---")
-
-# ==========================================
-# 🔑 SEGURIDAD Y CONEXIÓN
-# ==========================================
-try:
-    # Usamos la librería oficial de Groq (más profesional)
-    groq_api_key = st.secrets["GROQ_API_KEY"]
-    db_url = st.secrets["DB_URL"]
-    client = Groq(api_key=groq_api_key)
-except Exception:
-    st.error("⚠️ Error: Configura GROQ_API_KEY y DB_URL en los Secrets de Streamlit.")
-    st.stop()
-
-# ==========================================
-# 💾 EXTRACCIÓN DE DATOS (ANTIALUCINACIÓN)
-# ==========================================
-@st.cache_data(ttl=600)
-def cargar_datos_reales():
-    try:
-        conn = psycopg2.connect(db_url)
-        # AJUSTADO: Usamos exactamente tus nombres de tabla y columnas
-        query = "SELECT title, description FROM noticias_tecnologia LIMIT 15;"
-        df = pd.read_sql_query(query, conn)
+    conn = conectar_db()
+    if conn:
+        # Consulta para el gráfico
+        query = "SELECT title FROM noticias_tecnologia;"
+        df = pd.read_sql(query, conn)
         conn.close()
         
-        texto_contexto = ""
-        for _, row in df.iterrows():
-            texto_contexto += f"NOTICIA: {row['title']}\nDESCRIPCIÓN: {row['description']}\n---\n"
-        return texto_contexto
-    except Exception as e:
-        return f"Error de conexión con la base de datos: {e}"
-
-# Cargamos las noticias reales de tu base Neon
-contexto_db = cargar_datos_reales()
+        # MÉTRICAS ARRIBA
+        col1, col2 = st.columns(2)
+        with col1:
+            st.markdown(f'<div class="metric-card"><h3>Total Noticias</h3><h2>{len(df)}</h2></div>', unsafe_allow_html=True)
+        with col2:
+            st.markdown('<div class="metric-card"><h3>Estado Base de Datos</h3><h2 style="color:green;">Conectado ✅</h2></div>', unsafe_allow_html=True)
+        
+        st.write("---")
+        
+        # GRÁFICO DE BARRAS (Simulando frecuencia por palabra clave o solo listado)
+        st.subheader("📈 Distribución de Contenido")
+        if not df.empty:
+            # Creamos un gráfico sencillo basado en la longitud de los títulos para mostrar algo visual
+            df['Longitud_Titulo'] = df['title'].apply(len)
+            st.bar_chart(df.set_index('title')['Longitud_Titulo'])
+            st.caption("Gráfico interactivo: Longitud de caracteres por noticia guardada.")
+        else:
+            st.warning("No hay noticias para graficar todavía.")
+    else:
+        st.error("No se pudo conectar a Neon para mostrar gráficos.")
 
 # ==========================================
-# 💬 CHAT INTELIGENTE (MODO GANADOR)
+# 🤖 SECCIÓN 2: CHATBOT (Tu código exitoso)
 # ==========================================
-if "messages" not in st.session_state:
-    st.session_state.messages = [
-        {"role": "assistant", "content": "☀️ **¡Bienvenida!** Soy tu analista de IA. He leído tu base de datos y estoy lista para darte respuestas **reales y verificadas**. 🌳 ¿Qué noticias deseas analizar hoy?"}
-    ]
+else:
+    st.title("☀️ Vanguardia-IA News 📰")
+    st.info("Analista Experta en Noticias | Arquitectura RAG")
 
-# Mostrar historial con avatares
-for message in st.session_state.messages:
-    avatar = "🤖" if message["role"] == "assistant" else "👤"
-    with st.chat_message(message["role"], avatar=avatar):
-        st.markdown(message["content"])
+    if "messages" not in st.session_state:
+        st.session_state.messages = [{"role": "assistant", "content": "☀️ ¡Hola Blanca! Lista para analizar tus datos de Neon. 🌳"}]
 
-# Captura de pregunta del usuario
-if prompt := st.chat_input("Escribe tu consulta aquí..."):
-    st.session_state.messages.append({"role": "user", "content": prompt})
-    with st.chat_message("user", avatar="👤"):
-        st.markdown(prompt)
+    for msg in st.session_state.messages:
+        with st.chat_message(msg["role"]): st.markdown(msg["content"])
 
-    with st.chat_message("assistant", avatar="🤖"):
-        with st.spinner("🧠 Consultando base de datos Neon..."):
-            # INSTRUCCIONES ESTRICTAS (Grounding)
-            system_instruction = f"""
-            Eres una IA analista profesional de alto nivel. 
-            REGLA DE ORO: Responde ÚNICAMENTE basándote en el CONTEXTO DE NOTICIAS que te doy. 
-            Si la respuesta no está ahí, di: 'Lo siento, esa información no está en mi base de datos de noticias actual.'
-            No inventes nada (Prohibido alucinar). Usa negritas, emojis y listas.
-            
-            CONTEXTO DE NOTICIAS:
-            {contexto_db}
-            """
-            
-            try:
-                response = client.chat.completions.create(
-                    model="llama-3.1-8b-instant",
-                    messages=[
-                        {"role": "system", "content": system_instruction},
-                        {"role": "user", "content": prompt}
-                    ],
-                    temperature=0.1 # Precisión máxima
-                )
-                full_response = response.choices[0].message.content
-                st.markdown(full_response)
-                st.session_state.messages.append({"role": "assistant", "content": full_response})
-            except Exception as e:
-                st.error(f"Error al procesar con la IA: {e}")
+    if prompt := st.chat_input("Consulta tu base de datos..."):
+        st.session_state.messages.append({"role": "user", "content": prompt})
+        with st.chat_message("user"): st.markdown(prompt)
 
-st.write("---")
-st.caption("🏆 Proyecto Vanguardia-IA News | Blanca Yesenia Hernández")
+        with st.chat_message("assistant"):
+            with st.spinner("🧠 Consultando Neon..."):
+                try:
+                    client = Groq(api_key=st.secrets["GROQ_API_KEY"])
+                    # Cargamos contexto para el RAG
+                    conn = conectar_db()
+                    df_ctx = pd.read_sql("SELECT title, description FROM noticias_tecnologia LIMIT 5;", conn)
+                    conn.close()
+                    contexto = df_ctx.to_string()
+
+                    response = client.chat.completions.create(
+                        model="llama-3.1-8b-instant",
+                        messages=[
+                            {"role": "system", "content": f"Eres analista de Blanca Yesenia. Base de datos: {contexto}. Si no está ahí, di que no lo sabes."},
+                            {"role": "user", "content": prompt}
+                        ]
+                    )
+                    res = response.choices[0].message.content
+                    st.markdown(res)
+                    st.session_state.messages.append({"role": "assistant", "content": res})
+                except Exception as e:
+                    st.error(f"Error: {e}")
