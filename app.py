@@ -2,64 +2,131 @@ import streamlit as st
 from groq import Groq
 import pandas as pd
 import psycopg2
+import os
 
-# 1. CONFIGURACIÓN
-st.set_page_config(page_title="Vanguardia-IA News", page_icon="☀️", layout="wide")
+# ==========================================
+# 🏆 CONFIGURACIÓN DE ALTO NIVEL (UI/UX)
+# ==========================================
+st.set_page_config(
+    page_title="Vanguardia-IA News | Analista Pro",
+    page_icon="☀️",
+    layout="wide"
+)
 
-# 2. ESTILO
-st.markdown("""<style>.stApp { background: #020617; color: white; }</style>""", unsafe_allow_html=True)
+# Estilo visual profesional
+st.markdown("""
+    <style>
+    .main { background-color: #f8f9fa; }
+    .stChatMessage { border-radius: 15px; padding: 10px; margin-bottom: 10px; }
+    </style>
+    """, unsafe_allow_html=True)
 
-# 3. FUNCIÓN PARA LEER TU BASE DE DATOS NEON
-def consultar_base_datos():
-    try:
-        # Usa la URL de tus Secrets
-        conn = psycopg2.connect(st.secrets["DB_URL"])
-        query = "SELECT * FROM noticias LIMIT 10;" # O el nombre de tu tabla
-        df = pd.read_sql(query, conn)
-        conn.close()
-        return df.to_string() # Convierte los datos en texto para la IA
-    except:
-        return "No hay datos disponibles en la base de datos actualmente."
-
-# 4. SIDEBAR
+# ==========================================
+# 🌳 PANEL LATERAL PROFESIONAL (SIDEBAR)
+# ==========================================
 with st.sidebar:
-    st.title("☀️ Vanguardia-IA 🌳")
-    st.success("👩‍💻 Blanca Yesenia Hernández")
-    if st.button("🎉 Celebrar"): st.balloons()
+    st.title("🌳 Panel de Control")
+    st.markdown("---")
+    st.subheader("☀️ Vanguardia-IA News")
+    st.info("Arquitectura **RAG** (Generación Aumentada por Recuperación) conectada a Neon.")
+    
+    st.markdown("---")
+    st.write("**Desarrollado por:**")
+    st.success("✨ Blanca Yesenia Hernández")
+    st.write("---")
+    st.caption("☀️ *'Datos reales, respuestas verdaderas.'* 🌳")
+    
+    if st.button("🎈 ¡Celebrar Victoria!"):
+        st.balloons()
 
-# 5. LÓGICA DEL CHATBOT "HONESTO"
-st.markdown("# 🤖 Analista de Base de Datos")
-st.info("Solo respondo basado en lo que Blanca Yesenia ha guardado en la base de datos.")
+# ==========================================
+# 📰 ENCABEZADO PRINCIPAL
+# ==========================================
+st.title("☀️ Vanguardia-IA News 📰")
+st.markdown("#### *Analista Experta en Noticias Basada en Datos Reales*")
+st.write("---")
 
-if "messages" not in st.session_state:
-    st.session_state.messages = []
+# ==========================================
+# 🔑 SEGURIDAD Y CONEXIÓN
+# ==========================================
+try:
+    # Usamos la librería oficial de Groq (más profesional)
+    groq_api_key = st.secrets["GROQ_API_KEY"]
+    db_url = st.secrets["DB_URL"]
+    client = Groq(api_key=groq_api_key)
+except Exception:
+    st.error("⚠️ Error: Configura GROQ_API_KEY y DB_URL en los Secrets de Streamlit.")
+    st.stop()
 
-for msg in st.session_state.messages:
-    with st.chat_message(msg["role"]): st.markdown(msg["content"])
-
-prompt = st.chat_input("¿Qué noticia buscas en mi base de datos?")
-
-if prompt:
-    st.session_state.messages.append({"role": "user", "content": prompt})
-    with st.chat_message("user"): st.markdown(prompt)
-
-    with st.chat_message("assistant"):
-        # PASO CLAVE: Traemos tus datos de Neon
-        datos_reales = consultar_base_datos()
+# ==========================================
+# 💾 EXTRACCIÓN DE DATOS (ANTIALUCINACIÓN)
+# ==========================================
+@st.cache_data(ttl=600)
+def cargar_datos_reales():
+    try:
+        conn = psycopg2.connect(db_url)
+        # AJUSTADO: Usamos exactamente tus nombres de tabla y columnas
+        query = "SELECT title, description FROM noticias_tecnologia LIMIT 15;"
+        df = pd.read_sql_query(query, conn)
+        conn.close()
         
-        try:
-            key = "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"
-            client = Groq(api_key=key)
+        texto_contexto = ""
+        for _, row in df.iterrows():
+            texto_contexto += f"NOTICIA: {row['title']}\nDESCRIPCIÓN: {row['description']}\n---\n"
+        return texto_contexto
+    except Exception as e:
+        return f"Error de conexión con la base de datos: {e}"
+
+# Cargamos las noticias reales de tu base Neon
+contexto_db = cargar_datos_reales()
+
+# ==========================================
+# 💬 CHAT INTELIGENTE (MODO GANADOR)
+# ==========================================
+if "messages" not in st.session_state:
+    st.session_state.messages = [
+        {"role": "assistant", "content": "☀️ **¡Bienvenida!** Soy tu analista de IA. He leído tu base de datos y estoy lista para darte respuestas **reales y verificadas**. 🌳 ¿Qué noticias deseas analizar hoy?"}
+    ]
+
+# Mostrar historial con avatares
+for message in st.session_state.messages:
+    avatar = "🤖" if message["role"] == "assistant" else "👤"
+    with st.chat_message(message["role"], avatar=avatar):
+        st.markdown(message["content"])
+
+# Captura de pregunta del usuario
+if prompt := st.chat_input("Escribe tu consulta aquí..."):
+    st.session_state.messages.append({"role": "user", "content": prompt})
+    with st.chat_message("user", avatar="👤"):
+        st.markdown(prompt)
+
+    with st.chat_message("assistant", avatar="🤖"):
+        with st.spinner("🧠 Consultando base de datos Neon..."):
+            # INSTRUCCIONES ESTRICTAS (Grounding)
+            system_instruction = f"""
+            Eres una IA analista profesional de alto nivel. 
+            REGLA DE ORO: Responde ÚNICAMENTE basándote en el CONTEXTO DE NOTICIAS que te doy. 
+            Si la respuesta no está ahí, di: 'Lo siento, esa información no está en mi base de datos de noticias actual.'
+            No inventes nada (Prohibido alucinar). Usa negritas, emojis y listas.
             
-            response = client.chat.completions.create(
-                messages=[
-                    {"role": "system", "content": f"Eres un analista. AQUÍ ESTÁ LA BASE DE DATOS DE BLANCA: {datos_reales}. Si el usuario pregunta algo que NO esté en ese texto, responde: 'Lo siento, esa noticia no está registrada en mi base de datos de Neon'."},
-                    {"role": "user", "content": prompt}
-                ],
-                model="llama-3.3-70b-versatile",
-            )
-            res = response.choices[0].message.content
-            st.markdown(res)
-            st.session_state.messages.append({"role": "assistant", "content": res})
-        except Exception as e:
-            st.error(f"Error: {e}")
+            CONTEXTO DE NOTICIAS:
+            {contexto_db}
+            """
+            
+            try:
+                response = client.chat.completions.create(
+                    model="llama-3.1-8b-instant",
+                    messages=[
+                        {"role": "system", "content": system_instruction},
+                        {"role": "user", "content": prompt}
+                    ],
+                    temperature=0.1 # Precisión máxima
+                )
+                full_response = response.choices[0].message.content
+                st.markdown(full_response)
+                st.session_state.messages.append({"role": "assistant", "content": full_response})
+            except Exception as e:
+                st.error(f"Error al procesar con la IA: {e}")
+
+st.write("---")
+st.caption("🏆 Proyecto Vanguardia-IA News | Blanca Yesenia Hernández")
