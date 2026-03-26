@@ -1,87 +1,63 @@
 import streamlit as st
-from groq import Groq
 import pandas as pd
+from groq import Groq
 import psycopg2
 
-# ==========================================
-# 🎨 CONFIGURACIÓN Y ESTILO "GLASSMORPHISM"
-# ==========================================
-st.set_page_config(
-    page_title="Vanguardia-IA News | Analista Pro",
-    page_icon="☀️",
-    layout="wide"
-)
+# Configuración básica
+st.set_page_config(page_title="Vanguardia IA News", layout="wide")
 
-# Inyectamos CSS para el fondo degradado y las tarjetas modernas
+# Estilo Premium
 st.markdown("""
-<style>
-    /* Fondo Degradado Profesional */
-    .stApp {
-        background: linear-gradient(135deg, #020617, #0f172a);
-        color: #e2e8f0;
-    }
-    /* Sidebar Elegante */
-    section[data-testid="stSidebar"] {
-        background: #020617;
-        border-right: 1px solid #1e293b;
-    }
-    /* Tarjetas con efecto de cristal */
-    .card {
-        background: rgba(255,255,255,0.05);
-        padding: 20px;
-        border-radius: 15px;
-        backdrop-filter: blur(10px);
-        border: 1px solid rgba(255,255,255,0.1);
-        margin-bottom: 15px;
-        text-align: center;
-    }
-    h1, h2, h3 { color: #f8fafc; }
-</style>
-""", unsafe_allow_html=True)
+    <style>
+    .main { background: linear-gradient(135deg, #1e3a8a, #000000); color: white; }
+    .stButton>button { background-color: #10b981; color: white; border-radius: 10px; }
+    </style>
+    """, unsafe_allow_html=True)
 
-# ==========================================
-# 🔑 SEGURIDAD Y CONEXIÓN (Tus Secrets)
-# ==========================================
-try:
-    groq_api_key = st.secrets["GROQ_API_KEY"]
-    db_url = st.secrets["DB_URL"]
-    client = Groq(api_key=groq_api_key)
-except Exception:
-    st.error("⚠️ Error: Configura GROQ_API_KEY y DB_URL en los Secrets de Streamlit.")
-    st.stop()
+# Sidebar con tu nombre
+with st.sidebar:
+    st.title("🚀 Panel Control")
+    st.success("👤 Blanca Yesenia Hernández")
+    menu = st.radio("Ir a:", ["🤖 Chatbot IA", "📊 Dashboard Real"])
 
-# ==========================================
-# 💾 EXTRACCIÓN DE DATOS REALES (NEON)
-# ==========================================
-@st.cache_data(ttl=600)
-def cargar_datos_reales():
+# Conexión Segura a la Base de Datos
+def get_data():
     try:
-        conn = psycopg2.connect(db_url)
-        # Usamos tu tabla exacta: noticias_tecnologia
-        query = "SELECT title, description FROM noticias_tecnologia LIMIT 20;"
-        df = pd.read_sql_query(query, conn)
+        conn = psycopg2.connect(st.secrets["DB_URL"])
+        query = "SELECT * FROM noticias LIMIT 10" # Asegúrate que tu tabla se llame 'noticias'
+        df = pd.read_sql(query, conn)
         conn.close()
         return df
     except Exception as e:
-        st.error(f"Error de base de datos: {e}")
-        return pd.DataFrame()
+        return str(e)
 
-df_noticias = cargar_datos_reales()
-
-# Preparamos el contexto para la IA (Grounding)
-contexto_ia = ""
-for _, row in df_noticias.iterrows():
-    contexto_ia += f"TITULO: {row['title']}\nDESCRIPCIÓN: {row['description']}\n---\n"
-
-# ==========================================
-# 🌳 PANEL LATERAL (SIDEBAR)
-# ==========================================
-with st.sidebar:
-    st.title("🌳 Panel Vanguardia")
-    st.markdown("---")
-    # Menú de navegación
-    opcion = st.radio("Ir a:", ["🤖 Asistente IA", "📊 Dashboard Real"])
+# Lógica del Chat
+if menu == "🤖 Chatbot IA":
+    st.header("👩‍💻 Chat de Noticias IA")
     
-    st.markdown("---")
-    st.write("**Desarrolladora:**")
-    st.success("✨ Blanca Yesenia Hernández")
+    # Tarjetas de estado
+    c1, c2 = st.columns(2)
+    with c1: st.metric("Estado DB", "Conectado ✅")
+    with c2: st.metric("Motor IA", "Groq Llama-3 🔥")
+
+    prompt = st.chat_input("Escribe tu consulta aquí...")
+    if prompt:
+        with st.chat_message("user"): st.write(prompt)
+        with st.chat_message("assistant"):
+            try:
+                client = Groq(api_key=st.secrets["GROQ_API_KEY"])
+                response = client.chat.completions.create(
+                    messages=[{"role": "user", "content": prompt}],
+                    model="llama3-8b-8192",
+                )
+                st.write(f"🤖 {response.choices[0].message.content}")
+            except:
+                st.error("Error en la llave de Groq")
+
+else:
+    st.header("📊 Dashboard de Datos")
+    datos = get_data()
+    if isinstance(datos, str):
+        st.error(f"Error de conexión: {datos}")
+    else:
+        st.dataframe(datos)
