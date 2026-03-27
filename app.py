@@ -9,11 +9,12 @@ import re
 # ==========================================
 st.set_page_config(page_title="Vanguardia-IA News Pro ✨", page_icon="☀️", layout="wide")
 
+# Estilos visuales
 st.markdown("""
 <style>
     .stApp { background: linear-gradient(-45deg, #ffffff, #f0f9ff, #f0fff4); }
     .stMarkdown, p, li, span, h1, h2, h3, h4 { color: #000000 !important; font-family: 'Inter', sans-serif; }
-    .stChatMessage { border-radius: 20px; padding: 15px; margin-bottom: 15px; border: 1px solid #e2e8f0; box-shadow: 0 4px 6px rgba(0,0,0,0.05); }
+    .stChatMessage { border-radius: 20px; padding: 15px; margin-bottom: 15px; border: 1px solid #e2e8f0; background-color: white; }
     section[data-testid="stSidebar"] { background-color: #ffffff; border-right: 1px solid #e2e8f0; }
     .stButton>button { border-radius: 25px; width: 100%; background-color: #fcd34d; color: #000 !important; font-weight: bold; border: none; }
 </style>
@@ -35,33 +36,18 @@ with st.sidebar:
     st.success("✨ Blanca Yesenia Hernández")
     if st.button("🎉 ¡Lanzar Celebración!"): st.balloons()
 
-# 📊 DASHBOARD
-if opcion == "📊 Dashboard Real":
-    st.title("📊 Dashboard de Noticias")
-    conn = conectar_db()
-    if conn:
-        try:
-            df = pd.read_sql("SELECT title FROM noticias_tecnologia;", conn)
-            conn.close()
-            st.metric("Total Noticias en Neon", len(df))
-            if not df.empty:
-                df['Largo'] = df['title'].apply(len)
-                st.bar_chart(df.set_index('title')['Largo'])
-        except: st.error("Error al cargar datos.")
-    else: st.error("Error de conexión.")
-
-# 🤖 CHATBOT
-else:
+# 🤖 SECCIÓN 1: CHATBOT ANALISTA
+if opcion == "🤖 Chat Inteligente":
     st.markdown("# ☀️ Vanguardia-IA News 📰")
     st.write("---")
 
     if "messages" not in st.session_state:
-        st.session_state.messages = [{"role": "assistant", "content": "☀️🤖 ¡Hola Blanca! Ya reforcé mi sistema de limpieza de código. Pregúntame sobre tus fuentes o autores."}]
+        st.session_state.messages = [{"role": "assistant", "content": "☀️🤖 ¡Lista Blanca! Conectada a Neon y lista para el éxito. ¿Qué noticia analizamos?"}]
 
     for msg in st.session_state.messages:
         with st.chat_message(msg["role"]): st.markdown(msg["content"])
 
-    if prompt := st.chat_input("Escribe tu consulta aquí..."):
+    if prompt := st.chat_input("Escribe tu pregunta aquí..."):
         st.session_state.messages.append({"role": "user", "content": prompt})
         with st.chat_message("user"): st.markdown(prompt)
 
@@ -70,31 +56,37 @@ else:
                 try:
                     client = Groq(api_key=st.secrets["GROQ_API_KEY"])
                     
-                    # INSTRUCCIÓN PARA SQL PURO (CERO EXPLICACIONES)
+                    # CEREBRO SQL REFORZADO
+                    sistema_sql = (
+                        "Eres un experto en PostgreSQL. Tabla: 'noticias_tecnologia'. "
+                        "Columnas: 'title', 'description', 'author', 'source'. "
+                        "REGLAS:\n"
+                        "1. Usa ILIKE para buscar texto.\n"
+                        "2. Prohibido usar 'INSTR'. Usa 'POSITION' o 'STRPOS'.\n"
+                        "3. Devuelve SOLO el bloque de código entre ```sql ... ``` sin explicaciones extra."
+                    )
+
                     res_sql = client.chat.completions.create(
                         model="llama-3.1-8b-instant",
-                        messages=[
-                            {"role": "system", "content": "Eres un experto en SQL. Tabla: 'noticias_tecnologia' (title, description, author, source). Devuelve SOLO el código SQL encerrado entre triple comilla invertida ```sql ... ```. No escribas nada de texto fuera de las comillas."},
-                            {"role": "user", "content": prompt}
-                        ]
+                        messages=[{"role": "system", "content": sistema_sql}, {"role": "user", "content": prompt}]
                     )
-                    raw_content = res_sql.choices[0].message.content
                     
-                    # Limpiador de código (Regex) para extraer solo lo que está entre ```sql
+                    raw_content = res_sql.choices[0].message.content
                     match = re.search(r"```sql\n(.*?)\n```", raw_content, re.DOTALL)
                     query = match.group(1).strip() if match else raw_content.strip()
 
+                    # Ejecución en Neon
                     conn = conectar_db()
                     df_res = pd.read_sql(query, conn)
                     conn.close()
                     
                     if df_res.empty:
-                        respuesta = "☀️ Blanca, no encontré datos con esos filtros en tu Neon."
+                        respuesta = "☀️ Blanca, busqué en Neon pero no hay registros que coincidan. ¡Aquí no inventamos datos! 😉"
                     else:
                         res_final = client.chat.completions.create(
                             model="llama-3.1-8b-instant",
                             messages=[
-                                {"role": "system", "content": f"Eres Analista de Vanguardia-IA. Datos: {df_res.to_string()}. Responde breve y usa tablas Markdown."},
+                                {"role": "system", "content": f"Eres Analista de Vanguardia-IA. Datos Reales: {df_res.to_string()}. Responde breve, usa tablas Markdown y negritas."},
                                 {"role": "user", "content": prompt}
                             ]
                         )
@@ -107,6 +99,21 @@ else:
                     st.session_state.messages.append({"role": "assistant", "content": respuesta})
 
                 except Exception as e:
-                    st.error(f"Aviso: Intenta ser más específica. Error técnico: {e}")
+                    st.error(f"Consulta compleja. Intenta preguntar algo más directo sobre títulos o autores.")
+
+# 📊 SECCIÓN 2: DASHBOARD
+else:
+    st.title("📊 Dashboard de Noticias")
+    conn = conectar_db()
+    if conn:
+        try:
+            df = pd.read_sql("SELECT title FROM noticias_tecnologia;", conn)
+            conn.close()
+            st.metric("Total Noticias en Neon", len(df))
+            if not df.empty:
+                df['Largo'] = df['title'].apply(len)
+                st.bar_chart(df.set_index('title')['Largo'])
+        except: st.error("Error al cargar datos.")
+    else: st.error("Error de conexión.")
 
 st.caption("🏆 Proyecto Vanguardia-IA News | Blanca Yesenia Hernández")
