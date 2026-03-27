@@ -1,3 +1,4 @@
+
 import streamlit as st
 from groq import Groq
 import pandas as pd
@@ -53,7 +54,7 @@ else:
     st.write("---")
 
     if "messages" not in st.session_state:
-        st.session_state.messages = [{"role": "assistant", "content": "☀️🤖 ¡Hola Blanca! Pregúntame lo que quieras de tus noticias. Ya conozco la estructura de tu tabla. 🌳"}]
+        st.session_state.messages = [{"role": "assistant", "content": "☀️🤖 ¡Hola Blanca! Ya ajusté mi sistema. Pregúntame sobre autores o temas, ahora buscaré directamente en tu tabla de Neon. 🌳"}]
 
     for msg in st.session_state.messages:
         with st.chat_message(msg["role"]): st.markdown(msg["content"])
@@ -67,28 +68,33 @@ else:
                 try:
                     client = Groq(api_key=st.secrets["GROQ_API_KEY"])
                     
-                    # PASO 1: SQL REFORZADO (Aquí le damos las columnas reales)
-                    esquema = "Tabla: 'noticias_tecnologia'. Columnas: 'title', 'description', 'author', 'source'."
+                    # INSTRUCCIONES ULTRA-CLARAS PARA EVITAR ERRORES
+                    instruccion_sql = (
+                        "Eres un experto en SQL para PostgreSQL. "
+                        "SOLO existe una tabla llamada 'noticias_tecnologia'. "
+                        "Sus columnas son: 'title', 'description', 'author', 'source'. "
+                        "No inventes otras tablas. Genera solo el código SQL puro."
+                    )
+
                     res_sql = client.chat.completions.create(
                         model="llama-3.1-8b-instant",
                         messages=[
-                            {"role": "system", "content": f"Eres experto en SQL. {esquema}. Solo devuelve SQL puro de PostgreSQL. NO inventes otras tablas como 'autores', todo está en 'noticias_tecnologia'."},
-                            {"role": "user", "content": f"SQL para: {prompt}"}
+                            {"role": "system", "content": instruccion_sql},
+                            {"role": "user", "content": f"Genera el SQL para: {prompt}"}
                         ]
                     )
                     query = res_sql.choices[0].message.content.strip().replace("```sql", "").replace("```", "")
 
-                    # PASO 2: CONSULTA REAL
+                    # Ejecución
                     conn = conectar_db()
                     df_res = pd.read_sql(query, conn)
                     conn.close()
                     
-                    # PASO 3: RESPUESTA
-                    ctx = df_res.to_string()
+                    # Respuesta Humana
                     res_final = client.chat.completions.create(
                         model="llama-3.1-8b-instant",
                         messages=[
-                            {"role": "system", "content": f"Eres la Analista de Vanguardia-IA. Datos reales de Neon: {ctx}. Responde a Blanca de forma ejecutiva."},
+                            {"role": "system", "content": f"Eres la Analista de Vanguardia-IA. Responde basándote SOLO en estos datos: {df_res.to_string()}. Sé breve y profesional."},
                             {"role": "user", "content": prompt}
                         ]
                     )
@@ -101,6 +107,6 @@ else:
                     st.session_state.messages.append({"role": "assistant", "content": respuesta})
 
                 except Exception as e:
-                    st.error("Blanca, no pude procesar esa consulta específica. Intenta preguntar algo más simple sobre los títulos o autores.")
+                    st.error(f"Blanca, todavía tengo un detalle con esa consulta. Intenta preguntar: '¿Qué autores hay?'")
 
 st.caption("🏆 Proyecto Vanguardia-IA News | Blanca Yesenia Hernández")
