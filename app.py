@@ -2,6 +2,7 @@ import streamlit as st
 from groq import Groq
 import pandas as pd
 import psycopg2
+import re
 
 # ==========================================
 # 💎 CONFIGURACIÓN PREMIUM VANGUARDIA-IA
@@ -27,11 +28,14 @@ with st.sidebar:
     st.markdown("## ☀️ Vanguardia-IA")
     st.markdown("---")
     opcion = st.radio("Ir a:", ["🤖 Chat Inteligente", "📊 Dashboard Real"])
+    if st.button("🗑️ Limpiar Historial"):
+        st.session_state.messages = []
+        st.rerun()
     st.markdown("---")
     st.success("✨ Blanca Yesenia Hernández")
     if st.button("🎉 ¡Lanzar Celebración!"): st.balloons()
 
-# 📊 SECCIÓN 1: DASHBOARD
+# 📊 DASHBOARD
 if opcion == "📊 Dashboard Real":
     st.title("📊 Dashboard de Noticias")
     conn = conectar_db()
@@ -43,17 +47,16 @@ if opcion == "📊 Dashboard Real":
             if not df.empty:
                 df['Largo'] = df['title'].apply(len)
                 st.bar_chart(df.set_index('title')['Largo'])
-        except: st.error("Error al cargar Dashboard.")
+        except: st.error("Error al cargar datos.")
     else: st.error("Error de conexión.")
 
-# 🤖 SECCIÓN 2: CHATBOT ANALISTA
+# 🤖 CHATBOT
 else:
     st.markdown("# ☀️ Vanguardia-IA News 📰")
-    st.markdown("### *Analista Experta en Noticias Reales*")
     st.write("---")
 
     if "messages" not in st.session_state:
-        st.session_state.messages = [{"role": "assistant", "content": "☀️🤖 ¡Hola Blanca! Ya estoy blindada contra invenciones. Solo te diré lo que realmente esté en Neon. ¿Qué buscamos?"}]
+        st.session_state.messages = [{"role": "assistant", "content": "☀️🤖 ¡Hola Blanca! Ya reforcé mi sistema de limpieza de código. Pregúntame sobre tus fuentes o autores."}]
 
     for msg in st.session_state.messages:
         with st.chat_message(msg["role"]): st.markdown(msg["content"])
@@ -63,37 +66,35 @@ else:
         with st.chat_message("user"): st.markdown(prompt)
 
         with st.chat_message("assistant"):
-            with st.spinner("☀️ Consultando Neon..."):
+            with st.spinner("☀️ Analizando Neon..."):
                 try:
                     client = Groq(api_key=st.secrets["GROQ_API_KEY"])
                     
-                    # INSTRUCCIÓN PARA SQL REALISTA
-                    prompt_sql = (
-                        f"Eres un experto en SQL para PostgreSQL. Tabla: 'noticias_tecnologia'. "
-                        f"Columnas: 'title', 'description', 'author', 'source'. "
-                        f"REGLA: Usa ILIKE para búsquedas de texto para evitar errores de mayúsculas. "
-                        f"Genera solo SQL puro para: {prompt}"
-                    )
-                    
+                    # INSTRUCCIÓN PARA SQL PURO (CERO EXPLICACIONES)
                     res_sql = client.chat.completions.create(
                         model="llama-3.1-8b-instant",
-                        messages=[{"role": "system", "content": "Responde solo con SQL puro."},
-                                  {"role": "user", "content": prompt_sql}]
+                        messages=[
+                            {"role": "system", "content": "Eres un experto en SQL. Tabla: 'noticias_tecnologia' (title, description, author, source). Devuelve SOLO el código SQL encerrado entre triple comilla invertida ```sql ... ```. No escribas nada de texto fuera de las comillas."},
+                            {"role": "user", "content": prompt}
+                        ]
                     )
-                    query = res_sql.choices[0].message.content.strip().replace("```sql", "").replace("```", "")
+                    raw_content = res_sql.choices[0].message.content
+                    
+                    # Limpiador de código (Regex) para extraer solo lo que está entre ```sql
+                    match = re.search(r"```sql\n(.*?)\n```", raw_content, re.DOTALL)
+                    query = match.group(1).strip() if match else raw_content.strip()
 
                     conn = conectar_db()
                     df_res = pd.read_sql(query, conn)
                     conn.close()
                     
-                    # SI EL DATAFRAME ESTÁ VACÍO
                     if df_res.empty:
-                        respuesta = "☀️ Blanca, busqué en Neon pero **no hay datos** que coincidan exactamente con eso. ¡Aquí no inventamos noticias! 😉"
+                        respuesta = "☀️ Blanca, no encontré datos con esos filtros en tu Neon."
                     else:
                         res_final = client.chat.completions.create(
                             model="llama-3.1-8b-instant",
                             messages=[
-                                {"role": "system", "content": f"Eres la Analista de Vanguardia-IA. PROHIBIDO INVENTAR DATOS. Usa estos datos reales: {df_res.to_string()}. Responde de forma profesional."},
+                                {"role": "system", "content": f"Eres Analista de Vanguardia-IA. Datos: {df_res.to_string()}. Responde breve y usa tablas Markdown."},
                                 {"role": "user", "content": prompt}
                             ]
                         )
@@ -106,6 +107,6 @@ else:
                     st.session_state.messages.append({"role": "assistant", "content": respuesta})
 
                 except Exception as e:
-                    st.error(f"Consulta no procesada. Prueba algo más simple. Error: {e}")
+                    st.error(f"Aviso: Intenta ser más específica. Error técnico: {e}")
 
 st.caption("🏆 Proyecto Vanguardia-IA News | Blanca Yesenia Hernández")
