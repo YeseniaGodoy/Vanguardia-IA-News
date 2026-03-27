@@ -13,8 +13,6 @@ st.markdown("""
 <style>
     .stApp { background: linear-gradient(-45deg, #ffffff, #f0f9ff, #f0fff4); }
     .stMarkdown, p, li, span, h1, h2, h3, h4 { color: #000000 !important; font-family: 'Inter', sans-serif; }
-    
-    /* Burbujas de Chat elegantes */
     .stChatMessage {
         border-radius: 20px;
         padding: 15px;
@@ -22,11 +20,7 @@ st.markdown("""
         border: 1px solid #e2e8f0;
         box-shadow: 0 4px 6px rgba(0,0,0,0.05);
     }
-
-    /* Sidebar */
     section[data-testid="stSidebar"] { background-color: #ffffff; border-right: 1px solid #e2e8f0; }
-    
-    /* Botón de Celebración */
     .stButton>button {
         border-radius: 25px;
         width: 100%;
@@ -79,9 +73,8 @@ else:
     st.write("---")
 
     if "messages" not in st.session_state:
-        st.session_state.messages = [{"role": "assistant", "content": "☀️🤖 ¡Hola Blanca! Estoy conectada a Neon. Puedo analizar autores, títulos y fuentes de tus 92 noticias. ¿Qué deseas saber?"}]
+        st.session_state.messages = [{"role": "assistant", "content": "☀️🤖 ¡Hola Blanca! Estoy conectada a Neon. SÍ tengo acceso a tus 92 noticias. ¿Qué deseas analizar hoy?"}]
 
-    # Mostrar historial de chat
     for msg in st.session_state.messages:
         with st.chat_message(msg["role"]):
             st.markdown(msg["content"])
@@ -96,18 +89,17 @@ else:
                 try:
                     client = Groq(api_key=st.secrets["GROQ_API_KEY"])
                     
-                    # PASO 1: GENERACIÓN DE SQL (Esquema fijo para evitar errores)
+                    # PASO 1: GENERACIÓN DE SQL
                     prompt_sql = (
                         f"Eres un experto en SQL para PostgreSQL. "
                         f"SOLO existe la tabla 'noticias_tecnologia'. "
-                        f"Columnas disponibles: 'title', 'description', 'author', 'source'. "
-                        f"Genera solo el código SQL puro para responder a: {prompt}. "
-                        f"No inventes otras tablas."
+                        f"Columnas: 'title', 'description', 'author', 'source'. "
+                        f"Genera solo el código SQL puro para: {prompt}."
                     )
                     
                     res_sql = client.chat.completions.create(
                         model="llama-3.1-8b-instant",
-                        messages=[{"role": "system", "content": "Responde solo con código SQL puro."},
+                        messages=[{"role": "system", "content": "Responde solo con SQL puro."},
                                   {"role": "user", "content": prompt_sql}]
                     )
                     query = res_sql.choices[0].message.content.strip().replace("```sql", "").replace("```", "")
@@ -117,17 +109,11 @@ else:
                     df_res = pd.read_sql(query, conn)
                     conn.close()
                     
-                    # PASO 3: RESPUESTA FORMATEADA "WOW"
-                    datos_contexto = df_res.to_string()
+                    # PASO 3: RESPUESTA FORMATEADA
                     res_final = client.chat.completions.create(
                         model="llama-3.1-8b-instant",
                         messages=[
-                            {"role": "system", "content": f"""Eres la Analista de Vanguardia-IA. 
-                            Datos reales de Neon: {datos_contexto}. 
-                            INSTRUCCIONES: 
-                            1. Usa **negritas** para resaltar nombres clave.
-                            2. Si hay varios datos, organízalos en una tabla de Markdown.
-                            3. Responde de forma ejecutiva y amable a Blanca Yesenia."""},
+                            {"role": "system", "content": f"Eres la Analista de Vanguardia-IA. Datos reales: {df_res.to_string()}. Responde con tablas si hay muchos datos y usa negritas."},
                             {"role": "user", "content": prompt}
                         ]
                     )
@@ -135,4 +121,14 @@ else:
                     respuesta = res_final.choices[0].message.content
                     st.markdown(respuesta)
                     
-                    # MOSTRAR E
+                    # MOSTRAR EVIDENCIA TÉCNICA
+                    with st.expander("🔍 Ver proceso técnico"):
+                        st.code(query, language="sql")
+                        st.dataframe(df_res)
+                        
+                    st.session_state.messages.append({"role": "assistant", "content": respuesta})
+
+                except Exception as e:
+                    st.error(f"Consulta no procesada. Prueba algo más simple. Error: {e}")
+
+st.caption("🏆 Proyecto Vanguardia-IA News | Blanca Yesenia Hernández")
