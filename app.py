@@ -8,7 +8,7 @@ import psycopg2
 # ==========================================
 st.set_page_config(page_title="Vanguardia-IA News Pro ✨", page_icon="☀️", layout="wide")
 
-# --- CSS PARA EL PRIMER LUGAR (TEXTO NEGRO Y DISEÑO LIMPIO) ---
+# --- CSS PARA EL PRIMER LUGAR ---
 st.markdown("""
 <style>
     .stApp { background: linear-gradient(-45deg, #ffffff, #f0f9ff, #f0fff4); }
@@ -32,14 +32,14 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# 🔌 FUNCIONES DE CONEXIÓN A NEON
+# 🔌 FUNCIONES DE CONEXIÓN
 def conectar_db():
     try:
         return psycopg2.connect(st.secrets["DB_URL"])
     except:
         return None
 
-# 🌳 BARRA LATERAL (SIDEBAR)
+# 🌳 BARRA LATERAL
 with st.sidebar:
     st.markdown("## ☀️ Vanguardia-IA")
     st.markdown("---")
@@ -49,28 +49,31 @@ with st.sidebar:
     if st.button("🎉 ¡Lanzar Celebración!"): 
         st.balloons()
 
-# 📈 SECCIÓN 1: DASHBOARD (VISUALIZACIÓN DE DATOS)
+# 📈 SECCIÓN 1: DASHBOARD
 if opcion == "📊 Dashboard Real":
     st.title("📊 Dashboard de Noticias")
     conn = conectar_db()
     if conn:
-        df = pd.read_sql("SELECT title FROM noticias_tecnologia;", conn)
-        conn.close()
-        st.metric("Total Noticias en Neon", len(df))
-        if not df.empty:
-            df['Largo'] = df['title'].apply(len)
-            st.bar_chart(df.set_index('title')['Largo'])
+        try:
+            df = pd.read_sql("SELECT title FROM noticias_tecnologia;", conn)
+            conn.close()
+            st.metric("Total Noticias en Neon", len(df))
+            if not df.empty:
+                df['Largo'] = df['title'].apply(len)
+                st.bar_chart(df.set_index('title')['Largo'])
+        except:
+            st.error("Error al leer las tablas.")
     else: 
-        st.error("Error de conexión a la base de datos Neon.")
+        st.error("Error de conexión a la base de datos.")
 
-# 🤖 SECCIÓN 2: CHATBOT ANALISTA (LÓGICA DE TEXT-TO-SQL)
+# 🤖 SECCIÓN 2: CHATBOT ANALISTA
 else:
     st.markdown("# ☀️ Vanguardia-IA News 📰")
     st.markdown("### *Analista Experta en Noticias Reales*")
     st.write("---")
 
     if "messages" not in st.session_state:
-        st.session_state.messages = [{"role": "assistant", "content": "☀️🤖 ¡Hola Blanca Yesenia! Tengo acceso total a tus 92 noticias en Neon. ¿Qué dato específico necesitas que analice hoy? 🌳"}]
+        st.session_state.messages = [{"role": "assistant", "content": "☀️🤖 ¡Hola Blanca Yesenia! Estoy lista. Pregúntame sobre tus 92 noticias de Neon. 🌳"}]
 
     for msg in st.session_state.messages:
         with st.chat_message(msg["role"]):
@@ -82,23 +85,45 @@ else:
             st.markdown(prompt)
 
         with st.chat_message("assistant"):
-            with st.spinner("☀️ Extrayendo datos de Neon..."):
+            with st.spinner("☀️ Analizando Neon..."):
                 try:
                     client = Groq(api_key=st.secrets["GROQ_API_KEY"])
                     
-                    # PASO 1: LA IA GENERA EL SQL
+                    # PASO 1: SQL
                     res_sql = client.chat.completions.create(
                         model="llama-3.1-8b-instant",
                         messages=[
-                            {"role": "system", "content": "Eres un experto en SQL para PostgreSQL. La tabla es 'noticias_tecnologia' con columnas 'title' y 'description'. Solo responde con el código SQL puro, sin explicaciones ni comillas."},
-                            {"role": "user", "content": f"Genera el SQL para: {prompt}"}
+                            {"role": "system", "content": "Genera solo el código SQL puro para PostgreSQL. Tabla: noticias_tecnologia (columnas: title, description). Sin texto extra."},
+                            {"role": "user", "content": prompt}
                         ]
                     )
                     query = res_sql.choices[0].message.content.strip().replace("```sql", "").replace("```", "")
 
-                    # PASO 2: EJECUTAMOS EL SQL EN NEON
+                    # PASO 2: CONSULTA
                     conn = conectar_db()
-                    df_resultado = pd.read_sql(query, conn)
+                    df_res = pd.read_sql(query, conn)
                     conn.close()
                     
-                    # PAS
+                    # PASO 3: RESPUESTA FINAL
+                    ctx = df_res.to_string()
+                    res_final = client.chat.completions.create(
+                        model="llama-3.1-8b-instant",
+                        messages=[
+                            {"role": "system", "content": f"Eres la Analista de Blanca Yesenia. SÍ tienes acceso. Datos de Neon: {ctx}. Úsalos para responder."},
+                            {"role": "user", "content": prompt}
+                        ]
+                    )
+                    
+                    respuesta = res_final.choices[0].message.content
+                    st.markdown(respuesta)
+                    
+                    with st.expander("🔍 Ver proceso técnico"):
+                        st.code(query, language="sql")
+                        st.dataframe(df_res)
+                        
+                    st.session_state.messages.append({"role": "assistant", "content": respuesta})
+
+                except Exception as e:
+                    st.error(f"Aviso: Intenta preguntar de forma más clara. Detalles: {e}")
+
+st.caption("🏆 Proyecto Vanguardia-IA News | Blanca Yesenia Hernández")
