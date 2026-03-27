@@ -53,12 +53,12 @@ else:
     st.write("---")
 
     if "messages" not in st.session_state:
-        st.session_state.messages = [{"role": "assistant", "content": "☀️🤖 ¡Hola Blanca! Ya corregí mi lógica de búsqueda. ¿Qué noticia de Neon analizamos?"}]
+        st.session_state.messages = [{"role": "assistant", "content": "☀️🤖 ¡Hola Blanca! Ya estoy blindada contra invenciones. Solo te diré lo que realmente esté en Neon. ¿Qué buscamos?"}]
 
     for msg in st.session_state.messages:
         with st.chat_message(msg["role"]): st.markdown(msg["content"])
 
-    if prompt := st.chat_input("Consulta tu base de datos aquí..."):
+    if prompt := st.chat_input("Escribe tu consulta aquí..."):
         st.session_state.messages.append({"role": "user", "content": prompt})
         with st.chat_message("user"): st.markdown(prompt)
 
@@ -67,13 +67,11 @@ else:
                 try:
                     client = Groq(api_key=st.secrets["GROQ_API_KEY"])
                     
-                    # INSTRUCCIÓN REFORZADA PARA EVITAR EL ERROR DE GROUP BY
+                    # INSTRUCCIÓN PARA SQL REALISTA
                     prompt_sql = (
                         f"Eres un experto en SQL para PostgreSQL. Tabla: 'noticias_tecnologia'. "
                         f"Columnas: 'title', 'description', 'author', 'source'. "
-                        f"REGLA OBLIGATORIA: Si vas a mostrar el título (title) y contar (COUNT), "
-                        f"usa consultas separadas o prioriza mostrar los datos. "
-                        f"No mezcles COUNT() con columnas individuales sin GROUP BY. "
+                        f"REGLA: Usa ILIKE para búsquedas de texto para evitar errores de mayúsculas. "
                         f"Genera solo SQL puro para: {prompt}"
                     )
                     
@@ -88,24 +86,26 @@ else:
                     df_res = pd.read_sql(query, conn)
                     conn.close()
                     
-                    res_final = client.chat.completions.create(
-                        model="llama-3.1-8b-instant",
-                        messages=[
-                            {"role": "system", "content": f"Eres la Analista de Vanguardia-IA. Datos de Neon: {df_res.to_string()}. Responde a Blanca de forma clara, usa tablas si hay varios datos y felicítala por sus datos."},
-                            {"role": "user", "content": prompt}
-                        ]
-                    )
+                    # SI EL DATAFRAME ESTÁ VACÍO
+                    if df_res.empty:
+                        respuesta = "☀️ Blanca, busqué en Neon pero **no hay datos** que coincidan exactamente con eso. ¡Aquí no inventamos noticias! 😉"
+                    else:
+                        res_final = client.chat.completions.create(
+                            model="llama-3.1-8b-instant",
+                            messages=[
+                                {"role": "system", "content": f"Eres la Analista de Vanguardia-IA. PROHIBIDO INVENTAR DATOS. Usa estos datos reales: {df_res.to_string()}. Responde de forma profesional."},
+                                {"role": "user", "content": prompt}
+                            ]
+                        )
+                        respuesta = res_final.choices[0].message.content
                     
-                    respuesta = res_final.choices[0].message.content
                     st.markdown(respuesta)
-                    
                     with st.expander("🔍 Ver proceso técnico"):
                         st.code(query, language="sql")
                         st.dataframe(df_res)
-                        
                     st.session_state.messages.append({"role": "assistant", "content": respuesta})
 
                 except Exception as e:
-                    st.error(f"Blanca, esa consulta fue un poco compleja. Intenta preguntar solo: 'Dime los títulos de Google News'.")
+                    st.error(f"Consulta no procesada. Prueba algo más simple. Error: {e}")
 
 st.caption("🏆 Proyecto Vanguardia-IA News | Blanca Yesenia Hernández")
