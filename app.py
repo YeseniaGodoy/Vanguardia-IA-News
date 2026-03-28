@@ -7,40 +7,54 @@ from groq import Groq
 # 1. Configuración de la página
 st.set_page_config(page_title="Vanguardia-IA", page_icon="☀️", layout="wide")
 
-# 2. Estilo CSS para que sea IDÉNTICO a tu captura (Botones de colores)
+# 2. Estilo CSS para Contraste de Letras y Botones
 st.markdown("""
     <style>
-    /* Fondo gris claro de la app */
+    /* Fondo gris claro */
     .stApp { background-color: #f0f2f6; }
-    
-    /* Botón Limpiar Historial (Gris claro) */
-    div.stButton > button:contains("Limpiar Historial") {
-        background-color: #e9ecef !important;
-        color: #495057 !important;
-        border: none !important;
+
+    /* FORZAR COLOR DE LETRAS EN TODA LA PAGINA */
+    html, body, [class*="st-"] {
+        color: #1a1a1a !important; /* Negro fuerte para que se lea bien */
+        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
     }
 
-    /* Botón del nombre (Verde claro) */
-    div.stButton > button:contains("Blanca Yesenia Hernández") {
-        background-color: #d4f1d4 !important;
-        color: #155724 !important;
-        border: none !important;
-        font-weight: bold;
-    }
-    
-    /* Botón de celebración (Amarillo) */
-    div.stButton > button:contains("¡Lanzar Celebración!") {
-        background-color: #f7d74a !important;
-        color: #856404 !important;
-        border: none !important;
-        font-weight: bold;
-    }
-
-    /* Burbujas del chat blancas con sombra */
+    /* Estilo de los mensajes del chat */
     [data-testid="stChatMessage"] {
         background-color: white !important;
         border-radius: 15px !important;
-        box-shadow: 0px 2px 5px rgba(0,0,0,0.05) !important;
+        box-shadow: 0px 2px 8px rgba(0,0,0,0.1) !important;
+        border: 1px solid #d1d5db !important;
+        color: #1a1a1a !important;
+    }
+
+    /* Botón Limpiar Historial (Gris) */
+    div.stButton > button:contains("Limpiar Historial") {
+        background-color: #e2e8f0 !important;
+        color: #1a202c !important;
+        border: 1px solid #cbd5e1 !important;
+    }
+
+    /* Botón Blanca (Verde Fuerte para lectura) */
+    div.stButton > button:contains("Blanca Yesenia Hernández") {
+        background-color: #c3e6cb !important;
+        color: #155724 !important;
+        border: 1px solid #b1dfbb !important;
+        font-weight: bold !important;
+    }
+    
+    /* Botón Celebración (Amarillo Fuerte) */
+    div.stButton > button:contains("¡Lanzar Celebración!") {
+        background-color: #ffe082 !important;
+        color: #856404 !important;
+        border: 1px solid #ffd54f !important;
+        font-weight: bold !important;
+    }
+
+    /* Títulos de la barra lateral */
+    [data-testid="stSidebar"] h1, [data-testid="stSidebar"] p {
+        color: #1a1a1a !important;
+        font-weight: bold !important;
     }
     </style>
     """, unsafe_allow_html=True)
@@ -64,21 +78,17 @@ def obtener_datos():
 # --- BARRA LATERAL (SIDEBAR) ---
 with st.sidebar:
     st.title("☀️ Vanguardia-IA")
-    st.write("Ir a:")
+    st.write("### Panel de Control")
     menu = st.radio("Menú", ["🤖 Chat Inteligente", "📊 Dashboard Real"], label_visibility="collapsed")
     
-    # Espaciado para bajar los botones
-    st.markdown("<br>" * 12, unsafe_allow_html=True)
+    st.markdown("<br>" * 10, unsafe_allow_html=True)
     
-    # BOTÓN DE LIMPIAR HISTORIAL
     if st.button("🗑️ Limpiar Historial"):
         st.session_state.messages = []
         st.rerun()
     
-    # BOTÓN DE TU NOMBRE
     st.button("✨ Blanca Yesenia Hernández")
     
-    # BOTÓN DE CELEBRACIÓN
     if st.button("🥳 ¡Lanzar Celebración!"):
         st.balloons()
         st.snow()
@@ -90,49 +100,47 @@ if "messages" not in st.session_state:
     ]
 
 if menu == "🤖 Chat Inteligente":
-    # Mostrar mensajes
+    # Mostrar mensajes con mejor contraste
     for message in st.session_state.messages:
         with st.chat_message(message["role"]):
-            st.markdown(message["content"])
+            st.markdown(f'<p style="color: black; font-size: 16px;">{message["content"]}</p>', unsafe_allow_html=True)
 
-    # Entrada del chat
-    if prompt := st.chat_input("Escribe tu pregunta aquí..."):
+    # El buscador (Input del chat)
+    if prompt := st.chat_input("🔍 Buscar noticia o hacer una pregunta..."):
         st.session_state.messages.append({"role": "user", "content": prompt})
         with st.chat_message("user"):
             st.markdown(prompt)
 
-        # Lógica de respuesta (RAG)
+        # Lógica RAG
         df = obtener_datos()
         contexto = df.to_string()
         
-        # --- AQUÍ PEGA TU CLAVE DE GROQ ---
+        # --- PEGA TU CLAVE DE GROQ AQUÍ ---
         client = Groq(api_key="TU_CLAVE_GSK_AQUI") 
 
-        # Si pides la última noticia como en tu imagen
         if "ULTIMA NOTICIA" in prompt.upper() or "ÚLTIMA NOTICIA" in prompt.upper():
             with st.chat_message("assistant"):
-                st.write("🤖 **Última Noticia de Vanguardia-IA**")
+                st.write("🤖 **Última Noticia Encontrada:**")
                 st.table(df.tail(1))
             st.session_state.messages.append({"role": "assistant", "content": "Mostré la tabla de la última noticia."})
         else:
             try:
                 response = client.chat.completions.create(
-                    messages=[{"role": "user", "content": f"Basado en estos datos: {contexto}. Responde a: {prompt}. Si no sabes, di exactamente: Blanca, busqué en Neon pero no hay registros que coincidan. ¡Aquí no inventamos datos! 😉"}],
+                    messages=[{"role": "user", "content": f"Contexto: {contexto}. Pregunta: {prompt}. Si no sabes, di que no hay registros en Neon."}],
                     model="llama3-8b-8192",
                 )
                 answer = response.choices[0].message.content
                 with st.chat_message("assistant"):
-                    st.write(f"☀️ {answer}")
+                    st.markdown(f"☀️ {answer}")
                 st.session_state.messages.append({"role": "assistant", "content": f"☀️ {answer}"})
             except:
-                st.error("Revisa tu API Key de Groq.")
+                st.error("Error de conexión con Groq.")
 
-# --- SECCIÓN DEL DASHBOARD ---
+# --- DASHBOARD ---
 elif menu == "📊 Dashboard Real":
-    st.title("📊 Dashboard Real de Noticias")
+    st.title("📊 Análisis de Datos Real")
     df = obtener_datos()
     if not df.empty:
-        st.write("### Datos actuales en Neon")
-        st.dataframe(df, use_container_width=True)
-        st.write("### Estadísticas")
+        st.write("### Registros en Neon")
+        st.dataframe(df)
         st.bar_chart(df['title'].value_counts())
