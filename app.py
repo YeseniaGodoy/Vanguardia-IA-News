@@ -1,119 +1,110 @@
 import streamlit as st
-from groq import Groq
 import pandas as pd
 import psycopg2
-import re
+from groq import Groq
 
-# ==========================================
-# 💎 CONFIGURACIÓN PREMIUM VANGUARDIA-IA
-# ==========================================
-st.set_page_config(page_title="Vanguardia-IA News Pro ✨", page_icon="☀️", layout="wide")
+# 1. Configuración de la página y Estilo
+st.set_page_config(page_title="Vanguardia-IA News ☀️", layout="wide")
 
-# Estilos visuales
+# Estilo personalizado para que se vea profesional
 st.markdown("""
-<style>
-    .stApp { background: linear-gradient(-45deg, #ffffff, #f0f9ff, #f0fff4); }
-    .stMarkdown, p, li, span, h1, h2, h3, h4 { color: #000000 !important; font-family: 'Inter', sans-serif; }
-    .stChatMessage { border-radius: 20px; padding: 15px; margin-bottom: 15px; border: 1px solid #e2e8f0; background-color: white; }
-    section[data-testid="stSidebar"] { background-color: #ffffff; border-right: 1px solid #e2e8f0; }
-    .stButton>button { border-radius: 25px; width: 100%; background-color: #fcd34d; color: #000 !important; font-weight: bold; border: none; }
-</style>
-""", unsafe_allow_html=True)
+    <style>
+    .main { background-color: #f5f7f9; }
+    .stButton>button { width: 100%; border-radius: 20px; height: 3em; background-color: #007bff; color: white; }
+    .stTextInput>div>div>input { border-radius: 15px; }
+    </style>
+    """, unsafe_allow_html=True)
 
+# 2. Conexión a la Base de Datos (Neon - OLTP)
 def conectar_db():
-    try: return psycopg2.connect(st.secrets["DB_URL"])
-    except: return None
+    try:
+        # Reemplaza con tus datos reales de Neon si son diferentes
+        conn = psycopg2.connect("postgresql://neondb_owner:npg_W9Yof7aAnGgF@ep-round-sun-a5v5pbe9-pooler.us-east-2.aws.neon.tech/neondb?sslmode=require")
+        return conn
+    except Exception as e:
+        st.error(f"Error de conexión: {e}")
+        return None
 
-# 🌳 SIDEBAR
-with st.sidebar:
-    st.markdown("## ☀️ Vanguardia-IA")
-    st.markdown("---")
-    opcion = st.radio("Ir a:", ["🤖 Chat Inteligente", "📊 Dashboard Real"])
-    if st.button("🗑️ Limpiar Historial"):
-        st.session_state.messages = []
-        st.rerun()
-    st.markdown("---")
-    st.success("✨ Blanca Yesenia Hernández")
-    if st.button("🎉 ¡Lanzar Celebración!"): st.balloons()
-
-# 🤖 SECCIÓN 1: CHATBOT ANALISTA
-if opcion == "🤖 Chat Inteligente":
-    st.markdown("# ☀️ Vanguardia-IA News 📰")
-    st.write("---")
-
-    if "messages" not in st.session_state:
-        st.session_state.messages = [{"role": "assistant", "content": "☀️🤖 ¡Lista Blanca! Conectada a Neon y lista para el éxito. ¿Qué noticia analizamos?"}]
-
-    for msg in st.session_state.messages:
-        with st.chat_message(msg["role"]): st.markdown(msg["content"])
-
-    if prompt := st.chat_input("Escribe tu pregunta aquí..."):
-        st.session_state.messages.append({"role": "user", "content": prompt})
-        with st.chat_message("user"): st.markdown(prompt)
-
-        with st.chat_message("assistant"):
-            with st.spinner("☀️ Analizando Neon..."):
-                try:
-                    client = Groq(api_key=st.secrets["GROQ_API_KEY"])
-                    
-                    # CEREBRO SQL REFORZADO
-                    sistema_sql = (
-                        "Eres un experto en PostgreSQL. Tabla: 'noticias_tecnologia'. "
-                        "Columnas: 'title', 'description', 'author', 'source'. "
-                        "REGLAS:\n"
-                        "1. Usa ILIKE para buscar texto.\n"
-                        "2. Prohibido usar 'INSTR'. Usa 'POSITION' o 'STRPOS'.\n"
-                        "3. Devuelve SOLO el bloque de código entre ```sql ... ``` sin explicaciones extra."
-                    )
-
-                    res_sql = client.chat.completions.create(
-                        model="llama-3.1-8b-instant",
-                        messages=[{"role": "system", "content": sistema_sql}, {"role": "user", "content": prompt}]
-                    )
-                    
-                    raw_content = res_sql.choices[0].message.content
-                    match = re.search(r"```sql\n(.*?)\n```", raw_content, re.DOTALL)
-                    query = match.group(1).strip() if match else raw_content.strip()
-
-                    # Ejecución en Neon
-                    conn = conectar_db()
-                    df_res = pd.read_sql(query, conn)
-                    conn.close()
-                    
-                    if df_res.empty:
-                        respuesta = "☀️ Blanca, busqué en Neon pero no hay registros que coincidan. ¡Aquí no inventamos datos! 😉"
-                    else:
-                        res_final = client.chat.completions.create(
-                            model="llama-3.1-8b-instant",
-                            messages=[
-                                {"role": "system", "content": f"Eres Analista de Vanguardia-IA. Datos Reales: {df_res.to_string()}. Responde breve, usa tablas Markdown y negritas."},
-                                {"role": "user", "content": prompt}
-                            ]
-                        )
-                        respuesta = res_final.choices[0].message.content
-                    
-                    st.markdown(respuesta)
-                    with st.expander("🔍 Ver proceso técnico"):
-                        st.code(query, language="sql")
-                        st.dataframe(df_res)
-                    st.session_state.messages.append({"role": "assistant", "content": respuesta})
-
-                except Exception as e:
-                    st.error(f"Consulta compleja. Intenta preguntar algo más directo sobre títulos o autores.")
-
-# 📊 SECCIÓN 2: DASHBOARD
-else:
-    st.title("📊 Dashboard de Noticias")
+# 3. Función para obtener noticias (Análisis OLAP rápido)
+def obtener_noticias():
     conn = conectar_db()
     if conn:
-        try:
-            df = pd.read_sql("SELECT title FROM noticias_tecnologia;", conn)
-            conn.close()
-            st.metric("Total Noticias en Neon", len(df))
-            if not df.empty:
-                df['Largo'] = df['title'].apply(len)
-                st.bar_chart(df.set_index('title')['Largo'])
-        except: st.error("Error al cargar datos.")
-    else: st.error("Error de conexión.")
+        df = pd.read_sql_query("SELECT title, description FROM noticias_tecnologia", conn)
+        conn.close()
+        return df
+    return pd.DataFrame()
 
-st.caption("🏆 Proyecto Vanguardia-IA News | Blanca Yesenia Hernández")
+# --- BARRA LATERAL (EL MENÚ DEL ÁRBOL) ---
+st.sidebar.image("https://cdn-icons-png.flaticon.com/512/3858/3858693.png", width=100)
+st.sidebar.title("🌳 Panel de Control")
+st.sidebar.markdown("---")
+opcion = st.sidebar.radio("Ir a:", ["🤖 Chat Inteligente", "📊 Dashboard Real", "✨ Créditos"])
+
+# --- SECCIÓN 1: CHAT INTELIGENTE (IA con RAG) ---
+if opcion == "🤖 Chat Inteligente":
+    st.title("Vanguardia-IA News ☀️")
+    st.subheader("Tu IA honesta que no alucina")
+    
+    pregunta = st.text_input("Hazme una pregunta sobre las noticias en Neon:")
+
+    if pregunta:
+        df_noticias = obtener_noticias()
+        # Creamos el contexto (RAG)
+        contexto = "\n".join([f"- {t}: {d}" for t, d in zip(df_noticias['title'], df_noticias['description'])])
+        
+        client = Groq(api_key="TU_API_KEY_AQUI") # Asegúrate de poner tu clave de Groq
+        
+        prompt = f"""
+        Eres una IA honesta llamada Vanguardia-IA. 
+        Solo puedes responder basándote en esta información:
+        {contexto}
+        
+        Si la respuesta no está en el texto anterior, responde exactamente: 
+        "Blanca, busqué en Neon pero no hay registros que coincidan. ¡Aquí no inventamos datos! 😉"
+        
+        Pregunta: {pregunta}
+        """
+        
+        try:
+            chat_completion = client.chat.completions.create(
+                messages=[{"role": "user", "content": prompt}],
+                model="llama-3.1-8b-instant",
+            )
+            respuesta = chat_completion.choices[0].message.content
+            st.info(respuesta)
+        except:
+            st.warning("Configura tu API Key de Groq para que la IA responda.")
+
+# --- SECCIÓN 2: DASHBOARD (Visualización de datos) ---
+elif opcion == "📊 Dashboard Real":
+    st.title("📊 Análisis de Datos (OLAP)")
+    df = obtener_noticias()
+    
+    if not df.empty:
+        col1, col2 = st.columns(2)
+        with col1:
+            st.metric("Total de Noticias", len(df))
+        with col2:
+            st.write("Estado de la Nube: **Conectado a Neon ✅**")
+            
+        st.write("### Gráfico de Noticias por Título")
+        # Gráfica sencilla para impresionar
+        st.bar_chart(df['title'].value_counts())
+        
+        st.write("### Tabla de Datos Directa de Neon")
+        st.dataframe(df, use_container_width=True)
+    else:
+        st.error("No se encontraron datos en Neon.")
+
+# --- SECCIÓN 3: CRÉDITOS ---
+else:
+    st.title("✨ Presentación Final")
+    st.balloons() # ¡Globos automáticos al entrar aquí!
+    st.success("### Proyecto Creado por: Blanca Yesenia Hernández")
+    st.write("Herramientas utilizadas:")
+    st.write("- **Neon**: Base de Datos Cloud")
+    st.write("- **Groq**: Motor de IA ultra rápido")
+    st.write("- **Streamlit**: Interfaz de Usuario")
+    
+    if st.button("¡Lanzar Celebración! 🎈"):
+        st.snow() # Efecto de nieve/estrellas
